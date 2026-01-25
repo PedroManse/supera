@@ -28,8 +28,8 @@ There are four execution managers
 Response method | Many runners     | Single runner    |
 ----------------|------------------|------------------|
 Ordered         | `PoolQueueAPI`   | `SingleQueueAPI` |
-Linked[^linked] | `OneShotPoolAPI` | `OneShotAPI`     |
+Linked[^Linked] | `OneShotPoolAPI` | `OneShotAPI`     |
 
-[^linked]:
-    A linked manager will create a channel where the result of the operation will be sent.
-    This incurs some cost to their usage but a specific request can be easly tied to a specific response.
+[^Linked]:
+    A Linked manager will create a single-use channel for _each request_ sent.
+    This incurs some cost but greatly simplifies their usage.
