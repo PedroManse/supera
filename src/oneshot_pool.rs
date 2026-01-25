@@ -1,4 +1,4 @@
-use crossbeam::channel as mpmc;
+use crossbeam_channel as mpmc;
 use std::any::Any;
 use std::thread::JoinHandle;
 

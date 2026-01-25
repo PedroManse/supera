@@ -1,6 +1,6 @@
 use crate::queue::QueueRunner;
 use crate::{CmdRst, Command, CommandRunner};
-use crossbeam::channel as mpmc;
+use crossbeam_channel as mpmc;
 use std::any::Any;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
