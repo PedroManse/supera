@@ -1,6 +1,6 @@
 use crate::queue::QueueRunner;
 use crate::{CmdRst, Command, CommandRunner};
-use crossbeam::channel as mpmc;
+use crossbeam_channel as mpmc;
 use std::any::Any;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -49,7 +49,7 @@ where
     fn send(&self, cmd: Self::Cmd) -> Self::SendAck {
         self.send_cmd.send(cmd)
     }
-    fn close_with(self, s: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
+    fn close_with(self, mut s: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
         for _ in 0..self.runners.len() {
             self.send(s.get())?;
         }

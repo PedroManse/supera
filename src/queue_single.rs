@@ -46,7 +46,7 @@ where
     fn send(&self, cmd: Self::Cmd) -> Self::SendAck {
         self.send_cmd.send(cmd)
     }
-    fn close_with(self, s: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
+    fn close_with(self, mut s: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
         let cmd = s.get();
         self.send_cmd
             .send(cmd)

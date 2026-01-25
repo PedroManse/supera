@@ -1,10 +1,11 @@
 # Supera
-## Supervisor for Running code Asynchronously
+## Supervisor for Running code Asynchronously[^worker-threads]
 
 # Command
 To use Supera a 'message' must be defined, an instance of the message must know
-how to do work. That is achieved by implementing the trait `Command`. The
-message is then used as a command for an async runner.
+how to be executed. That is achieved by implementing the trait `Command`. The
+message is then sent to a worker thread, what the worker does is implementation
+specific.
 
 All commands must define a signal to halt execution of the runner.
 To acheive that `StopRunner` or `SimpleStop` can be defined.
@@ -13,8 +14,9 @@ To acheive that `StopRunner` or `SimpleStop` can be defined.
 passed down to the runner when they are to be halted. Otherwise `SimpleStop` should be used.
 
 # Runner
-An async runner can receive a commands and execute them. They are entirely
-implementation-specific and created solely for the Managers.
+Runners are worker threads created for the Manager. What they do is
+implementation specific. But the built-in runners acquire messages, execute
+them and in some form return the results to the user.
 
 # Manager
 An execution manager implements the `CommandRunner` trait. So it's able to:
@@ -29,6 +31,10 @@ Response method | Many runners     | Single runner    |
 ----------------|------------------|------------------|
 Ordered         | `PoolQueueAPI`   | `SingleQueueAPI` |
 Linked[^Linked] | `OneShotPoolAPI` | `OneShotAPI`     |
+
+[^worker-threads]:
+    Code will *not* execute on an async runtime. It will simply execute on one
+    or more worker threads
 
 [^Linked]:
     A Linked manager will create a single-use channel for _each request_ sent.
