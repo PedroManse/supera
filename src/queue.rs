@@ -26,7 +26,7 @@ where
     pub(crate) fn send(&self, res: CmdRst<Cmd>) -> Result<(), S::Err> {
         self.send_res.send_t(res)
     }
-    pub(crate) fn exec(cmd: Cmd) -> ActionResult<CmdRst<Cmd>> {
+    pub(crate) fn exec(cmd: Cmd) -> ActionResult<Cmd> {
         cmd.execute()
     }
 }
