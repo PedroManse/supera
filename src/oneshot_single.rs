@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::fmt::Debug;
+use std::fmt;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
@@ -24,10 +24,21 @@ where
     Join(Box<dyn Any + Send>),
 }
 
+impl<Cmd: Command + fmt::Debug> fmt::Display for OneShotCloseError<Cmd> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Join(e) => write!(f, "Failed to join thread, {e:?}"),
+            Self::Send(cmd) => write!(f, "Failed to send command {cmd:?}"),
+        }
+    }
+}
+
+impl<Cmd: fmt::Debug + Command> std::error::Error for OneShotCloseError<Cmd> {}
+
 impl<Cmd> CommandRunner for OneShotAPI<Cmd>
 where
     Cmd: Command,
-    <Cmd as Command>::Result: Debug,
+    <Cmd as Command>::Result: fmt::Debug,
 {
     type Cmd = Cmd;
     type SendAck = Result<ExternalCommandLink<Cmd>, QueuedCommand<Cmd>>;

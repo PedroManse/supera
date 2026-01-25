@@ -1,6 +1,7 @@
 use crate::queue::QueueRunner;
 use crate::{CmdRst, Command, CommandRunner};
 use std::any::Any;
+use std::fmt;
 use std::sync::mpsc::{self, Receiver, RecvError, SendError, Sender};
 use std::thread::JoinHandle;
 
@@ -25,6 +26,17 @@ where
     Send(SendError<Cmd>),
     Join(Box<dyn Any + Send>),
 }
+
+impl<Cmd: Command> fmt::Display for SingleQueueCloseError<Cmd> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Join(e) => write!(f, "Failed to join thread, {e:?}"),
+            Self::Send(cmd) => write!(f, "Failed to send command {cmd}"),
+        }
+    }
+}
+
+impl<Cmd: fmt::Debug + Command> std::error::Error for SingleQueueCloseError<Cmd> {}
 
 impl<Cmd> CommandRunner for SingleQueueAPI<Cmd>
 where
