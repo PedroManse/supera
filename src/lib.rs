@@ -25,7 +25,7 @@ pub trait Command: Send + Sync + 'static {
 
 /// Creates a command that would halt the command runner>
 pub trait StopRunner<C: Command> {
-    fn get(&self) -> C;
+    fn get(&mut self) -> C;
 }
 
 pub trait SimpleStop: Command {
@@ -43,7 +43,7 @@ pub trait CommandRunner {
     type CloseResult;
 
     /// # Safety
-    /// Since this *should* start another thread, it's only safe to call this is
+    /// Since this *should* start another thread, it's only safe to call this if
     /// [`CommandRunner::close_with`] or [`CommandRunner::close`] are called.
     ///
     /// [`CommandRunner::scope_with`] and [`CommandRunner::scope`] always call `close` on the
@@ -82,7 +82,7 @@ impl<C> StopRunner<C> for SimpleCloser
 where
     C: SimpleStop,
 {
-    fn get(&self) -> C {
+    fn get(&mut self) -> C {
         C::make_stop_command()
     }
 }

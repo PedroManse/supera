@@ -38,7 +38,7 @@ where
         self.cmd_queue.send(msg)?;
         Ok(rx)
     }
-    fn close_with(self, s: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
+    fn close_with(self, mut s: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
         for _ in 0..self.runners.len() {
             self.send(s.get())?;
         }
