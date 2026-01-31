@@ -1,9 +1,9 @@
 use std::any::Any;
-use std::fmt::Debug;
+use std::fmt;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
-use crate::oneshot::{ExternalCommandLink, OneShotRunner, QueuedCommand};
+use crate::oneshot::{ExternalCommandLink, OneShotRunner, OneshotEventLoopError, QueuedCommand};
 use crate::{Command, CommandRunner};
 type SR<Cmd> = mpsc::Receiver<QueuedCommand<Cmd>>;
 
@@ -12,7 +12,7 @@ where
     Cmd: Command,
 {
     cmd_queue: mpsc::Sender<QueuedCommand<Cmd>>,
-    thread: JoinHandle<OneShotRunner<Cmd, SR<Cmd>>>,
+    thread: JoinHandle<Result<OneShotRunner<Cmd, SR<Cmd>>, OneshotEventLoopError<Cmd>>>,
 }
 
 #[derive(Debug)]
@@ -22,12 +22,25 @@ where
 {
     Send(QueuedCommand<Cmd>),
     Join(Box<dyn Any + Send>),
+    Worker(OneshotEventLoopError<Cmd>),
 }
+
+impl<Cmd: Command + fmt::Debug> fmt::Display for OneShotCloseError<Cmd> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Join(e) => write!(f, "Failed to join thread, {e:?}"),
+            Self::Send(cmd) => write!(f, "Failed to send command {cmd:?}"),
+            Self::Worker(e) => write!(f, "Worker failed with: {e}"),
+        }
+    }
+}
+
+impl<Cmd: fmt::Debug + Command> std::error::Error for OneShotCloseError<Cmd> {}
 
 impl<Cmd> CommandRunner for OneShotAPI<Cmd>
 where
     Cmd: Command,
-    <Cmd as Command>::Result: Debug,
+    <Cmd as Command>::Result: fmt::Debug,
 {
     type Cmd = Cmd;
     type SendAck = Result<ExternalCommandLink<Cmd>, QueuedCommand<Cmd>>;
@@ -48,6 +61,9 @@ where
     }
     fn close_with(self, mut c: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
         self.send(c.get()).map_err(OneShotCloseError::Send)?;
-        self.thread.join().map_err(OneShotCloseError::Join)
+        self.thread
+            .join()
+            .map_err(OneShotCloseError::Join)?
+            .map_err(OneShotCloseError::Worker)
     }
 }

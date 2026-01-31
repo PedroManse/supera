@@ -1,6 +1,7 @@
-use crate::queue::QueueRunner;
+use crate::queue::{QueueEventLoopError, QueueRunner};
 use crate::{CmdRst, Command, CommandRunner};
 use std::any::Any;
+use std::fmt;
 use std::sync::mpsc::{self, Receiver, RecvError, SendError, Sender};
 use std::thread::JoinHandle;
 
@@ -14,7 +15,7 @@ where
 {
     send_cmd: Sender<Cmd>,
     recv_res: Receiver<CmdRst<Cmd>>,
-    thread: JoinHandle<QueueRunner<Cmd, SR<Cmd>, SS<Cmd>>>,
+    thread: JoinHandle<Result<QueueRunner<Cmd, SR<Cmd>, SS<Cmd>>, QueueEventLoopError>>,
 }
 
 #[derive(Debug)]
@@ -24,7 +25,20 @@ where
 {
     Send(SendError<Cmd>),
     Join(Box<dyn Any + Send>),
+    Worker(QueueEventLoopError),
 }
+
+impl<Cmd: Command> fmt::Display for SingleQueueCloseError<Cmd> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Join(e) => write!(f, "Failed to join thread, {e:?}"),
+            Self::Send(cmd) => write!(f, "Failed to send command {cmd}"),
+            Self::Worker(e) => write!(f, "Worker failed with: {e}"),
+        }
+    }
+}
+
+impl<Cmd: fmt::Debug + Command> std::error::Error for SingleQueueCloseError<Cmd> {}
 
 impl<Cmd> CommandRunner for SingleQueueAPI<Cmd>
 where
@@ -51,7 +65,10 @@ where
         self.send_cmd
             .send(cmd)
             .map_err(SingleQueueCloseError::Send)?;
-        self.thread.join().map_err(SingleQueueCloseError::Join)
+        self.thread
+            .join()
+            .map_err(SingleQueueCloseError::Join)?
+            .map_err(SingleQueueCloseError::Worker)
     }
 }
 

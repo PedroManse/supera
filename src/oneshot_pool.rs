@@ -1,8 +1,7 @@
 use crossbeam_channel as mpmc;
-use std::any::Any;
 use std::thread::JoinHandle;
 
-use crate::oneshot::{ExternalCommandLink, OneShotRunner, QueuedCommand};
+use crate::oneshot::{ExternalCommandLink, OneShotRunner, OneshotEventLoopError, QueuedCommand};
 use crate::{Command, CommandRunner};
 type MR<Cmd> = mpmc::Receiver<QueuedCommand<Cmd>>;
 
@@ -11,7 +10,7 @@ where
     Cmd: Command,
 {
     cmd_queue: mpmc::Sender<QueuedCommand<Cmd>>,
-    runners: [JoinHandle<OneShotRunner<Cmd, MR<Cmd>>>; N],
+    runners: [JoinHandle<Result<OneShotRunner<Cmd, MR<Cmd>>, OneshotEventLoopError<Cmd>>>; N],
 }
 
 impl<Cmd, const N: usize> CommandRunner for OneShotPoolAPI<Cmd, N>
@@ -21,7 +20,7 @@ where
     type Cmd = Cmd;
     type SendAck = Result<ExternalCommandLink<Cmd>, mpmc::SendError<QueuedCommand<Cmd>>>;
     type CloseResult = Result<
-        [Result<OneShotRunner<Cmd, MR<Cmd>>, Box<dyn Any + Send>>; N],
+        [Result<OneShotRunner<Cmd, MR<Cmd>>, OneshotEventLoopError<Cmd>>; N],
         mpmc::SendError<QueuedCommand<Cmd>>,
     >;
     unsafe fn new() -> Self {
@@ -42,6 +41,9 @@ where
         for _ in 0..self.runners.len() {
             self.send(s.get())?;
         }
-        Ok(self.runners.map(std::thread::JoinHandle::join))
+        Ok(self
+            .runners
+            .map(std::thread::JoinHandle::join)
+            .map(|e| e.map_err(OneshotEventLoopError::ThreadPanic)?))
     }
 }

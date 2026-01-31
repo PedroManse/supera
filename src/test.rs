@@ -15,7 +15,7 @@ impl supera::SimpleStop for MathAction {
 
 impl supera::Command for MathAction {
     type Result = i32;
-    fn execute(self) -> supera::ActionResult<Self::Result> {
+    fn execute(self) -> supera::ActionResult<i32> {
         supera::ActionResult::Normal(match self {
             Self::Sub(a, b) => a - b,
             Self::Stop => return supera::ActionResult::Stop,
@@ -30,7 +30,7 @@ mod queue {
     /// The runner can panic.
     /// Sending and receiving the messages can panic.
     #[test]
-    fn single_values() {
+    fn single_values() -> Result<(), Box<dyn std::error::Error>> {
         const COUNT: usize = 500_000;
         let mut outs = Vec::with_capacity(COUNT);
         supera::queue_single::SingleQueueAPI::<MathAction>::scope(|q| {
@@ -42,9 +42,9 @@ mod queue {
                 outs.push(q.recv().unwrap());
             }
             std::thread::yield_now();
-        })
-        .unwrap();
+        })?;
         assert_eq!(outs, vec![1; COUNT]);
+        Ok(())
     }
 
     /// # Panics
@@ -52,7 +52,7 @@ mod queue {
     /// Each runner can panic.
     /// Sending and receiving the messages can panic.
     #[test]
-    fn pool_values() {
+    fn pool_values() -> Result<(), Box<dyn std::error::Error>> {
         const COUNT: usize = 500_000;
         let mut outs = Vec::with_capacity(COUNT);
         let rs = supera::queue_pool::PoolQueueAPI::<MathAction, 2>::scope(|q| {
@@ -63,23 +63,24 @@ mod queue {
             for _ in 0..COUNT {
                 outs.push(q.recv().unwrap());
             }
-        })
-        .unwrap();
+        })?;
         assert_eq!(outs, vec![1; COUNT]);
         for r in rs {
-            r.unwrap();
+            r?;
         }
+        Ok(())
     }
 
     #[test]
     /// # Panics
     /// The runner can panic.
     /// Sending and receiving the messages can panic.
-    fn single_manual_close() {
+    fn single_manual_close() -> Result<(), Box<dyn std::error::Error>> {
         let rs = unsafe { supera::queue_single::SingleQueueAPI::new() };
-        rs.send(MathAction::Sub(3, 2)).unwrap();
-        rs.recv().unwrap();
-        rs.close().unwrap();
+        rs.send(MathAction::Sub(3, 2))?;
+        rs.recv()?;
+        rs.close()?;
+        Ok(())
     }
 
     /// # Panics
@@ -87,13 +88,14 @@ mod queue {
     /// Each runner can panic.
     /// Sending and receiving the messages can panic.
     #[test]
-    fn pool_manual_close() {
+    fn pool_manual_close() -> Result<(), Box<dyn std::error::Error>> {
         let rs = unsafe { supera::queue_pool::PoolQueueAPI::<MathAction, 3>::new() };
-        rs.send(MathAction::Sub(3, 2)).unwrap();
-        rs.recv().unwrap();
-        for r in rs.close().unwrap() {
-            r.unwrap();
+        rs.send(MathAction::Sub(3, 2))?;
+        rs.recv()?;
+        for r in rs.close()? {
+            r?;
         }
+        Ok(())
     }
 }
 
@@ -103,7 +105,7 @@ mod oneshot {
     /// The runner can panic.
     /// Sending and receiving the messages can panic.
     #[test]
-    fn single_values() {
+    fn single_values() -> Result<(), Box<dyn std::error::Error>> {
         const COUNT: usize = 5_000;
         supera::oneshot_single::OneShotAPI::scope(|q| {
             for _ in 0..COUNT {
@@ -112,8 +114,8 @@ mod oneshot {
                 let r = mr.recv().unwrap();
                 assert_eq!(r, 1);
             }
-        })
-        .unwrap();
+        })?;
+        Ok(())
     }
 
     /// # Panics
@@ -121,7 +123,7 @@ mod oneshot {
     /// Each runner can panic.
     /// Sending and receiving the messages can panic.
     #[test]
-    fn pool_values() {
+    fn pool_values() -> Result<(), Box<dyn std::error::Error>> {
         const COUNT: usize = 50_000;
         let runners = supera::oneshot_pool::OneShotPoolAPI::<MathAction, 10>::scope(|q| {
             for _ in 0..COUNT {
@@ -130,18 +132,18 @@ mod oneshot {
                 let r = mr.recv().unwrap();
                 assert_eq!(r, 1);
             }
-        })
-        .unwrap();
+        })?;
         for r in runners {
-            r.unwrap();
+            r?;
         }
+        Ok(())
     }
 
     /// # Panics
     /// The runner can panic.
     /// Sending and receiving the messages can panic.
     #[test]
-    fn single_manual_close() {
+    fn single_manual_close() -> Result<(), Box<dyn std::error::Error>> {
         use supera::oneshot_single::OneShotAPI;
         const COUNT: usize = 2_500;
         let q = unsafe { OneShotAPI::new() };
@@ -151,7 +153,8 @@ mod oneshot {
             let r = mr.recv().unwrap();
             assert_eq!(r, 1);
         }
-        q.close().unwrap();
+        q.close()?;
+        Ok(())
     }
 
     /// # Panics
@@ -159,7 +162,7 @@ mod oneshot {
     /// Each runner can panic.
     /// Sending and receiving the messages can panic.
     #[test]
-    fn pool_manual_close() {
+    fn pool_manual_close() -> Result<(), Box<dyn std::error::Error>> {
         use supera::oneshot_pool::OneShotPoolAPI;
         const COUNT: usize = 2_500;
         let q = unsafe { OneShotPoolAPI::<MathAction, 3>::new() };
@@ -169,8 +172,9 @@ mod oneshot {
             let r = mr.recv().unwrap();
             assert_eq!(r, 1);
         }
-        for r in q.close().unwrap() {
-            r.unwrap();
+        for r in q.close()? {
+            r?;
         }
+        Ok(())
     }
 }

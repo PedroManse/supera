@@ -1,4 +1,5 @@
 use crossbeam_channel as mpmc;
+use std::fmt;
 use std::sync::mpsc;
 
 #[cfg(test)]
@@ -13,13 +14,13 @@ pub mod queue_pool;
 pub mod queue_single;
 
 #[derive(Debug)]
-pub enum ActionResult<R> {
-    Normal(R),
+pub enum ActionResult<Rst> {
+    Normal(Rst),
     Stop,
 }
 
 pub trait Command: Send + Sync + 'static {
-    type Result: Send;
+    type Result: Send + fmt::Debug;
     fn execute(self) -> ActionResult<Self::Result>;
 }
 
