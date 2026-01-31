@@ -14,16 +14,15 @@ pub mod queue_pool;
 pub mod queue_single;
 
 #[derive(Debug)]
-pub enum ActionResult<Cmd: Command + ?Sized> {
-    Normal(CmdRst<Cmd>),
+pub enum ActionResult<Rst> {
+    Normal(Rst),
     Stop,
 }
 
 pub trait Command: Send + Sync + 'static {
     type Result: Send + fmt::Debug;
-    fn execute(self) -> ActionResult<Self>;
+    fn execute(self) -> ActionResult<Self::Result>;
 }
-
 
 /// Creates a command that would halt the command runner>
 pub trait StopRunner<C: Command> {

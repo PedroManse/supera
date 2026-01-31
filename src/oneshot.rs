@@ -65,7 +65,7 @@ where
     fn get(&self) -> Result<QueuedCommand<Cmd>, R::Err> {
         self.reqs.recv_t()
     }
-    fn exec(cmd: Cmd) -> ActionResult<Cmd> {
+    fn exec(cmd: Cmd) -> ActionResult<CmdRst<Cmd>> {
         cmd.execute()
     }
     /// # Panics
