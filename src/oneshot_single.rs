@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
-use crate::oneshot::{ExternalCommandLink, OneShotRunner, QueuedCommand};
+use crate::oneshot::{ExternalCommandLink, OneShotRunner, OneshotEventLoopError, QueuedCommand};
 use crate::{Command, CommandRunner};
 type SR<Cmd> = mpsc::Receiver<QueuedCommand<Cmd>>;
 
@@ -12,7 +12,7 @@ where
     Cmd: Command,
 {
     cmd_queue: mpsc::Sender<QueuedCommand<Cmd>>,
-    thread: JoinHandle<OneShotRunner<Cmd, SR<Cmd>>>,
+    thread: JoinHandle<Result<OneShotRunner<Cmd, SR<Cmd>>, OneshotEventLoopError<Cmd>>>,
 }
 
 #[derive(Debug)]
@@ -22,6 +22,7 @@ where
 {
     Send(QueuedCommand<Cmd>),
     Join(Box<dyn Any + Send>),
+    Worker(OneshotEventLoopError<Cmd>),
 }
 
 impl<Cmd: Command + fmt::Debug> fmt::Display for OneShotCloseError<Cmd> {
@@ -29,6 +30,7 @@ impl<Cmd: Command + fmt::Debug> fmt::Display for OneShotCloseError<Cmd> {
         match self {
             Self::Join(e) => write!(f, "Failed to join thread, {e:?}"),
             Self::Send(cmd) => write!(f, "Failed to send command {cmd:?}"),
+            Self::Worker(e) => write!(f, "Worker failed with: {e}"),
         }
     }
 }
@@ -59,6 +61,9 @@ where
     }
     fn close_with(self, mut c: impl crate::StopRunner<Self::Cmd>) -> Self::CloseResult {
         self.send(c.get()).map_err(OneShotCloseError::Send)?;
-        self.thread.join().map_err(OneShotCloseError::Join)
+        self.thread
+            .join()
+            .map_err(OneShotCloseError::Join)?
+            .map_err(OneShotCloseError::Worker)
     }
 }

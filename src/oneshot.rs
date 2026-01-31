@@ -1,3 +1,4 @@
+use std::fmt;
 use std::marker::PhantomData;
 use std::thread::JoinHandle;
 
@@ -13,6 +14,28 @@ where
     pub(crate) cmd: Cmd,
     pub(crate) chan: InternalCommandLink<Cmd>,
 }
+
+#[derive(Debug)]
+pub enum OneshotEventLoopError<Cmd>
+where
+    Cmd: Command,
+{
+    SendErr(CmdRst<Cmd>),
+    RecvErr,
+    ThreadPanic(Box<dyn std::any::Any + Send>),
+}
+
+impl<Cmd: Command + fmt::Debug> fmt::Display for OneshotEventLoopError<Cmd> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RecvErr => write!(f, "Failed to recieve"),
+            Self::SendErr(t) => write!(f, "Failed to write ({t:?})"),
+            Self::ThreadPanic(..) => write!(f, "Worker panicked"),
+        }
+    }
+}
+
+impl<Cmd: Command + fmt::Debug> std::error::Error for OneshotEventLoopError<Cmd> {}
 
 impl<Cmd> std::fmt::Debug for QueuedCommand<Cmd>
 where
@@ -47,19 +70,21 @@ where
     }
     /// # Panics
     /// The default runners panic if the channels they're bound to are dropped.
-    pub(crate) fn spawn(rx: R) -> JoinHandle<Self> {
+    pub(crate) fn spawn(rx: R) -> JoinHandle<Result<Self, OneshotEventLoopError<Cmd>>> {
         std::thread::spawn(move || {
             let runner = Self {
                 reqs: rx,
                 d: PhantomData,
             };
             loop {
-                let msg = runner.get().unwrap();
+                let msg = runner.get().map_err(|_| OneshotEventLoopError::RecvErr)?;
                 let r = Self::exec(msg.cmd);
                 let ActionResult::Normal(res) = r else { break };
-                msg.chan.send(res).unwrap();
+                msg.chan
+                    .send(res)
+                    .map_err(|k| OneshotEventLoopError::SendErr(k.into_inner()))?;
             }
-            runner
+            Ok(runner)
         })
     }
 }

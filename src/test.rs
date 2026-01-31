@@ -15,7 +15,7 @@ impl supera::SimpleStop for MathAction {
 
 impl supera::Command for MathAction {
     type Result = i32;
-    fn execute(self) -> supera::ActionResult<Self::Result> {
+    fn execute(self) -> supera::ActionResult<Self> {
         supera::ActionResult::Normal(match self {
             Self::Sub(a, b) => a - b,
             Self::Stop => return supera::ActionResult::Stop,
@@ -66,7 +66,7 @@ mod queue {
         })?;
         assert_eq!(outs, vec![1; COUNT]);
         for r in rs {
-            r.unwrap();
+            r?;
         }
         Ok(())
     }
@@ -93,7 +93,7 @@ mod queue {
         rs.send(MathAction::Sub(3, 2))?;
         rs.recv()?;
         for r in rs.close()? {
-            r.unwrap();
+            r?;
         }
         Ok(())
     }
@@ -134,7 +134,7 @@ mod oneshot {
             }
         })?;
         for r in runners {
-            r.unwrap();
+            r?;
         }
         Ok(())
     }
@@ -173,7 +173,7 @@ mod oneshot {
             assert_eq!(r, 1);
         }
         for r in q.close()? {
-            r.unwrap();
+            r?;
         }
         Ok(())
     }

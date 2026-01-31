@@ -1,4 +1,4 @@
-use crate::queue::QueueRunner;
+use crate::queue::{QueueEventLoopError, QueueRunner};
 use crate::{CmdRst, Command, CommandRunner};
 use crossbeam_channel as mpmc;
 use std::any::Any;
@@ -16,7 +16,7 @@ where
 {
     send_cmd: mpmc::Sender<Cmd>,
     recv_res: mpsc::Receiver<CmdRst<Cmd>>,
-    runners: [JoinHandle<PoolRunner<Cmd>>; N],
+    runners: [JoinHandle<Result<PoolRunner<Cmd>, QueueEventLoopError>>; N],
 }
 
 #[derive(Debug)]
@@ -35,7 +35,7 @@ where
     type Cmd = Cmd;
     type SendAck = Result<(), mpmc::SendError<Cmd>>;
     type CloseResult =
-        Result<[Result<PoolRunner<Cmd>, Box<dyn Any + Send>>; N], mpmc::SendError<Cmd>>;
+        Result<[Result<PoolRunner<Cmd>, QueueEventLoopError>; N], mpmc::SendError<Cmd>>;
     unsafe fn new() -> Self {
         let (tx_cmd, rx_cmd) = mpmc::unbounded();
         let (tx_res, rx_res) = mpsc::channel();
@@ -53,7 +53,10 @@ where
         for _ in 0..self.runners.len() {
             self.send(s.get())?;
         }
-        Ok(self.runners.map(std::thread::JoinHandle::join))
+        Ok(self
+            .runners
+            .map(std::thread::JoinHandle::join)
+            .map(|e| e.map_err(QueueEventLoopError::ThreadPanic)?))
     }
 }
 
