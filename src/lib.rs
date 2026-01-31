@@ -13,16 +13,17 @@ pub(crate) mod queue;
 pub mod queue_pool;
 pub mod queue_single;
 
-pub trait Command: Send + Sync + 'static {
-    type Result: Send + fmt::Debug;
-    fn execute(self) -> ActionResult<Self>;
-}
-
 #[derive(Debug)]
 pub enum ActionResult<Cmd: Command + ?Sized> {
     Normal(CmdRst<Cmd>),
     Stop,
 }
+
+pub trait Command: Send + Sync + 'static {
+    type Result: Send + fmt::Debug;
+    fn execute(self) -> ActionResult<Self>;
+}
+
 
 /// Creates a command that would halt the command runner>
 pub trait StopRunner<C: Command> {
